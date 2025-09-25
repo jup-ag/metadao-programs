@@ -1,6 +1,4 @@
-use anchor_lang::prelude::{
-    AccountMeta, AnchorDeserialize, AnchorSerialize, InitSpace, Pubkey, borsh,
-};
+use anchor_lang::prelude::*;
 use anyhow::{Result, anyhow, bail};
 
 use crate::FutarchyAmmError;
@@ -12,7 +10,7 @@ pub const TAKER_FEE_BPS: u16 = LP_TAKER_FEE_BPS + PROTOCOL_TAKER_FEE_BPS;
 pub const MAX_BPS: u16 = 10_000;
 pub const PRICE_SCALE: u128 = 1_000_000_000_000;
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, InitSpace)]
+#[account]
 pub struct Dao {
     /// Embedded FutarchyAmm - 1:1 relationship
     pub amm: FutarchyAmm,
