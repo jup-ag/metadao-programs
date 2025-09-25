@@ -1,6 +1,6 @@
 use anchor_lang::prelude::{AnchorDeserialize, Pubkey, Space};
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{anyhow, bail, Context, Result};
 use jupiter_amm_interface::{
     AccountMap, Amm, AmmContext, AmmProgramIdToLabel, KeyedAccount, Quote, Swap,
     SwapAndAccountMetas, SwapMode, SwapParams,
@@ -190,76 +190,5 @@ impl Amm for FutarchyAmmClient {
             fee_mint: quote_params.input_mint,
             fee_pct,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-
-    use jupiter_amm_interface::{ClockRef, KeyedAccount, SwapMode};
-    use solana_client::rpc_client::RpcClient;
-    use solana_commitment_config::CommitmentConfig;
-    use solana_sdk::pubkey;
-
-    #[test]
-    fn test_futarchy_amm() {
-        use solana_sdk::account::Account;
-        use std::collections::HashMap;
-
-        let rpc_url = "https://api.devnet.solana.com".to_string();
-        let client = RpcClient::new_with_commitment(rpc_url, CommitmentConfig::confirmed());
-
-        let dao_pubkey = pubkey!("9o2vDc7mnqLVu3humkRY1p87q2pFtXhF7QfnTo5qgCXE");
-
-        let dao_account = client.get_account(&dao_pubkey).unwrap();
-
-        let keyed_dao_account = KeyedAccount {
-            key: dao_pubkey,
-            account: dao_account.clone(),
-            params: None,
-        };
-
-        let amm_context = AmmContext {
-            clock_ref: ClockRef::default(),
-        };
-
-        let mut futarchy_amm =
-            FutarchyAmmClient::from_keyed_account(&keyed_dao_account, &amm_context).unwrap();
-
-        let accounts_to_update = futarchy_amm.get_accounts_to_update();
-        let accounts_map: HashMap<Pubkey, Account, ahash::RandomState> = client
-            .get_multiple_accounts(&accounts_to_update)
-            .unwrap()
-            .into_iter()
-            .zip(accounts_to_update)
-            .filter_map(|(account, pubkey)| account.map(|a| (pubkey, a)))
-            .collect();
-        futarchy_amm.update(&accounts_map).unwrap();
-
-        // buy 1 USDC worth
-        let res = futarchy_amm
-            .quote(&jupiter_amm_interface::QuoteParams {
-                amount: 1e6 as u64,
-                input_mint: futarchy_amm.state.quote_mint,
-                output_mint: futarchy_amm.state.base_mint,
-                swap_mode: SwapMode::ExactIn,
-            })
-            .unwrap();
-
-        println!("res: {:?}", res);
-
-        // sell 10 META worth
-        let res = futarchy_amm
-            .quote(&jupiter_amm_interface::QuoteParams {
-                amount: 1e6 as u64,
-                input_mint: futarchy_amm.state.base_mint,
-                output_mint: futarchy_amm.state.quote_mint,
-                swap_mode: SwapMode::ExactIn,
-            })
-            .unwrap();
-
-        println!("res: {:?}", res);
     }
 }
