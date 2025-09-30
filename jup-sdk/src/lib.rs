@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{anyhow, bail, Context, Result};
 use jupiter_amm_interface::{
     AccountMap, Amm, AmmContext, AmmProgramIdToLabel, KeyedAccount, Quote, Swap,
     SwapAndAccountMetas, SwapMode, SwapParams,
@@ -167,11 +167,7 @@ impl Amm for FutarchyAmmClient {
             bail!(FutarchyAmmError::ExactOutNotSupported);
         }
 
-        let out_amount = self
-            .state
-            .state
-            .clone()
-            .swap(quote_params.amount, swap_type)?;
+        let out_amount = self.state.state.swap(quote_params.amount, swap_type)?;
 
         let fee_pct = Decimal::new(TAKER_FEE_BPS as i64, 2);
 

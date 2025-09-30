@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anyhow::{Result, anyhow, bail};
+use anyhow::{anyhow, bail, Result};
 
 use crate::FutarchyAmmError;
 
@@ -90,14 +90,26 @@ pub enum Market {
 }
 
 impl PoolState {
-    pub fn swap(&mut self, input_amount: u64, swap_type: SwapType) -> Result<u64> {
+    pub fn swap(&self, input_amount: u64, swap_type: SwapType) -> Result<u64> {
         match self {
-            PoolState::Spot { spot } => spot.swap(input_amount, swap_type),
+            PoolState::Spot { spot } => {
+                let mut spot_pool = *spot;
+                spot_pool.swap(input_amount, swap_type)
+            }
             PoolState::Futarchy { spot, pass, fail } => {
-                let spot_output = spot.swap(input_amount, swap_type)?;
+                let mut spot_pool = *spot;
+                let mut pass_pool = *pass;
+                let mut fail_pool = *fail;
 
-                let arbitrage_result =
-                    arbitrage_after_spot_swap(spot, pass, fail, spot_output, swap_type)?;
+                let spot_output = spot_pool.swap(input_amount, swap_type)?;
+
+                let arbitrage_result = arbitrage_after_spot_swap(
+                    &mut spot_pool,
+                    &mut pass_pool,
+                    &mut fail_pool,
+                    spot_output,
+                    swap_type,
+                )?;
 
                 Ok(spot_output + arbitrage_result.spot_profit)
             }
@@ -161,7 +173,7 @@ impl TwapOracle {
     }
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, InitSpace)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy, InitSpace)]
 pub struct Pool {
     pub oracle: TwapOracle,
     pub quote_reserves: u64,
@@ -316,7 +328,7 @@ impl Pool {
     }
 
     pub fn simulate_swap(&self, input_amount: u64, swap_type: SwapType) -> Result<u64> {
-        let mut pool = self.clone();
+        let mut pool = *self;
         pool.feeless_swap(input_amount, swap_type)
     }
 }
