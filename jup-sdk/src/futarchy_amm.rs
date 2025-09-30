@@ -364,15 +364,9 @@ pub fn arbitrage_after_spot_swap(
     for i in 1..=100 {
         let input_amount = i * step_size;
 
-        let spot_output = spot.simulate_swap(input_amount, spot_direction).unwrap();
-
-        let pass_output = pass
-            .simulate_swap(spot_output, conditional_direction)
-            .unwrap();
-
-        let fail_output = fail
-            .simulate_swap(spot_output, conditional_direction)
-            .unwrap();
+        let spot_output = spot.simulate_swap(input_amount, spot_direction)?;
+        let pass_output = pass.simulate_swap(spot_output, conditional_direction)?;
+        let fail_output = fail.simulate_swap(spot_output, conditional_direction)?;
 
         let conditional_output = std::cmp::min(pass_output, fail_output);
 
@@ -388,17 +382,9 @@ pub fn arbitrage_after_spot_swap(
         }
     }
 
-    let final_spot_output = spot
-        .feeless_swap(best_input_amount, spot_direction)
-        .unwrap();
-
-    let final_pass_output = pass
-        .feeless_swap(final_spot_output, conditional_direction)
-        .unwrap();
-
-    let final_fail_output = fail
-        .feeless_swap(final_spot_output, conditional_direction)
-        .unwrap();
+    let final_spot_output = spot.feeless_swap(best_input_amount, spot_direction)?;
+    let final_pass_output = pass.feeless_swap(final_spot_output, conditional_direction)?;
+    let final_fail_output = fail.feeless_swap(final_spot_output, conditional_direction)?;
 
     let final_conditional_output = std::cmp::min(final_pass_output, final_fail_output);
 
