@@ -4,8 +4,8 @@ use anyhow::{anyhow, bail, Result};
 use crate::FutarchyAmmError;
 
 // use crate::{FutarchyError, LP_TAKER_FEE_BPS, MAX_BPS, PROTOCOL_TAKER_FEE_BPS};
-pub const LP_TAKER_FEE_BPS: u16 = 25;
-pub const PROTOCOL_TAKER_FEE_BPS: u16 = 25;
+pub const LP_TAKER_FEE_BPS: u16 = 0;
+pub const PROTOCOL_TAKER_FEE_BPS: u16 = 50;
 pub const TAKER_FEE_BPS: u16 = LP_TAKER_FEE_BPS + PROTOCOL_TAKER_FEE_BPS;
 pub const MAX_BPS: u16 = 10_000;
 pub const PRICE_SCALE: u128 = 1_000_000_000_000;
