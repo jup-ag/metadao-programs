@@ -50,6 +50,12 @@ pub struct Dao {
     pub base_to_stake: u64,
     pub seq_num: u64,
     pub initial_spending_limit: Option<InitialSpendingLimit>,
+    /// The percentage, in basis points, the pass price needs to be above the
+    /// fail price in order for the proposal to pass for team-sponsored proposals.
+    ///
+    /// Can be negative to allow for team-sponsored proposals to pass by default.
+    pub team_sponsored_pass_threshold_bps: i16,
+    pub team_address: Pubkey,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, PartialEq, Eq, InitSpace)]
@@ -79,6 +85,41 @@ impl Dao {
             FutarchyError::PassThresholdTooHigh
         );
 
+        require_gte!(
+            self.team_sponsored_pass_threshold_bps,
+            -1_000,
+            FutarchyError::InvalidTeamSponsoredPassThreshold
+        );
+
+        require_gte!(
+            1_000,
+            self.team_sponsored_pass_threshold_bps,
+            FutarchyError::InvalidTeamSponsoredPassThreshold
+        );
+
         Ok(())
     }
+}
+
+#[derive(Clone, AnchorSerialize, AnchorDeserialize, Debug, InitSpace)]
+pub struct OldDao {
+    pub amm: FutarchyAmm,
+    pub nonce: u64,
+    pub dao_creator: Pubkey,
+    pub pda_bump: u8,
+    pub squads_multisig: Pubkey,
+    pub squads_multisig_vault: Pubkey,
+    pub base_mint: Pubkey,
+    pub quote_mint: Pubkey,
+    pub proposal_count: u32,
+    pub pass_threshold_bps: u16,
+    pub seconds_per_proposal: u32,
+    pub twap_initial_observation: u128,
+    pub twap_max_observation_change_per_update: u128,
+    pub twap_start_delay_seconds: u32,
+    pub min_quote_futarchic_liquidity: u64,
+    pub min_base_futarchic_liquidity: u64,
+    pub base_to_stake: u64,
+    pub seq_num: u64,
+    pub initial_spending_limit: Option<InitialSpendingLimit>,
 }

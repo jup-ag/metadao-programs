@@ -72,7 +72,7 @@ fi
 
 # Add SDK build if not skipped
 if [ "$NO_SDK_BUILD" = false ]; then
-    SDK_CMD="(cd sdk && yarn build) &&"
+    SDK_CMD="(cd sdk && yarn build-local) &&"
 fi
 
 # Add log suppression if requested
@@ -102,7 +102,13 @@ if [ "$WATCH" = true ]; then
     echo "Watching for changes in: $WATCH_PATHS"
     echo "Command: $FINAL_CMD"
     echo ""
-    find $WATCH_PATHS | entr -sc "$FINAL_CMD"
+    find $WATCH_PATHS -type f \
+        -not -path "*/node_modules/*" \
+        -not -path "*/target/*" \
+        -not -path "*/.anchor/*" \
+        -not -path "*/dist/*" \
+        -not -path "*/.git/*" \
+        | entr -sc "$FINAL_CMD"
 else
     echo "Running command: $FINAL_CMD"
     echo ""

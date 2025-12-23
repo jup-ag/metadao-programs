@@ -8,6 +8,8 @@ import {
 import { assert } from "chai";
 import {
   getPerformancePackageAddr,
+  LAUNCHPAD_PROGRAM_ID,
+  MAINNET_METEORA_CONFIG,
   MAINNET_USDC,
   PERMISSIONLESS_ACCOUNT,
 } from "@metadaoproject/futarchy/v0.6";
@@ -20,6 +22,30 @@ import * as multisig from "@sqds/multisig";
 const { Permissions, Permission } = multisig.types;
 
 export default async function suite() {
+  before(async function () {
+    const dynamicConfig = await this.banksClient.getAccount(
+      new PublicKey("4mPQ4VuvvtYL3CeMPt14Uj1CLpBWcVdJoLoTH9ea4Kod"),
+    );
+
+    // discriminator + vault config authority
+    const poolCreatorAuthorityOffset = 8 + 32;
+    // discriminator + vault config authority + pool creator authority + pool fees config + activation type + collect fee mode
+    const configTypeOffset = 8 + 32 + 32 + 128 + 1 + 1;
+
+    const [poolCreatorAuthority] = PublicKey.findProgramAddressSync(
+      [Buffer.from("damm_pool_creator_authority")],
+      LAUNCHPAD_PROGRAM_ID,
+    );
+
+    dynamicConfig.data.set(
+      poolCreatorAuthority.toBuffer(),
+      poolCreatorAuthorityOffset,
+    );
+    dynamicConfig.data.set([1], configTypeOffset);
+
+    this.context.setAccount(MAINNET_METEORA_CONFIG, dynamicConfig);
+  });
+
   it("launch a DAO, have a multi-ix proposal pass, execute it, and have insiders vest their first 2 tranches", async function () {
     // Create multiple funders
     const funder1 = Keypair.generate();
@@ -41,7 +67,7 @@ export default async function suite() {
     // Initialize the launch
     const result = await initializeMintWithSeeds(
       this.banksClient,
-      this.launchpad,
+      this.launchpad_v6,
       this.payer,
     );
 
@@ -116,7 +142,7 @@ export default async function suite() {
     );
 
     // Initialize launch
-    await this.launchpad
+    await this.launchpad_v6
       .initializeLaunchIx({
         tokenName: "META",
         tokenSymbol: "META",
@@ -131,16 +157,17 @@ export default async function suite() {
         performancePackageTokenAmount,
         // 2 years
         monthsUntilInsidersCanUnlock: 24,
+        teamAddress: PublicKey.default,
       })
       .rpc();
 
     // Start launch
-    await this.launchpad.startLaunchIx({ launch }).rpc();
+    await this.launchpad_v6.startLaunchIx({ launch }).rpc();
 
     // A total of 1M gets committed, entrepreneur caps at 500k
 
     // Fund from multiple sources
-    await this.launchpad
+    await this.launchpad_v6
       .fundIx({
         launch,
         amount: new BN(500_000_000000),
@@ -150,7 +177,7 @@ export default async function suite() {
       .signers([funder1])
       .rpc();
 
-    await this.launchpad
+    await this.launchpad_v6
       .fundIx({
         launch,
         amount: new BN(150_000_000000),
@@ -158,7 +185,7 @@ export default async function suite() {
       })
       .rpc();
 
-    await this.launchpad
+    await this.launchpad_v6
       .fundIx({
         launch,
         amount: new BN(350_000_000000),
@@ -171,9 +198,9 @@ export default async function suite() {
     // Advance time and complete launch
     await this.advanceBySeconds(launchPeriod + 1);
 
-    await this.launchpad.closeLaunchIx({ launch }).rpc();
+    await this.launchpad_v6.closeLaunchIx({ launch }).rpc();
 
-    const completeLaunchTx = await this.launchpad
+    const completeLaunchTx = await this.launchpad_v6
       .completeLaunchIx({
         launch,
         baseMint: META,
@@ -199,7 +226,7 @@ export default async function suite() {
     await this.banksClient.processTransaction(tx);
 
     // Verify launch completion and DAO creation
-    const launchAccount = await this.launchpad.fetchLaunch(launch);
+    const launchAccount = await this.launchpad_v6.fetchLaunch(launch);
     assert.exists(launchAccount.state.complete);
     assert.exists(launchAccount.dao);
     dao = launchAccount.dao;
@@ -214,9 +241,9 @@ export default async function suite() {
     console.log(await this.getTokenBalance(MAINNET_USDC, launchSigner));
 
     // Claim tokens for all funders
-    await this.launchpad.claimIx(launch, META, funder1.publicKey).rpc();
-    await this.launchpad.claimIx(launch, META).rpc();
-    await this.launchpad.claimIx(launch, META, funder3.publicKey).rpc();
+    await this.launchpad_v6.claimIx(launch, META, funder1.publicKey).rpc();
+    await this.launchpad_v6.claimIx(launch, META).rpc();
+    await this.launchpad_v6.claimIx(launch, META, funder3.publicKey).rpc();
 
     // Verify token distributions
     const funder1Balance = await this.getTokenBalance(META, funder1.publicKey);
@@ -241,11 +268,15 @@ export default async function suite() {
     );
 
     // Claim partial refunds
-    await this.launchpad.refundIx({ launch, funder: funder1.publicKey }).rpc();
-    await this.launchpad
+    await this.launchpad_v6
+      .refundIx({ launch, funder: funder1.publicKey })
+      .rpc();
+    await this.launchpad_v6
       .refundIx({ launch, funder: this.payer.publicKey })
       .rpc();
-    await this.launchpad.refundIx({ launch, funder: funder3.publicKey }).rpc();
+    await this.launchpad_v6
+      .refundIx({ launch, funder: funder3.publicKey })
+      .rpc();
 
     const postRefundFunder1QuoteBalance = await this.getTokenBalance(
       MAINNET_USDC,
@@ -343,9 +374,12 @@ export default async function suite() {
           secondsPerProposal: null,
           baseToStake: new BN(0),
           twapInitialObservation: null,
+          twapStartDelaySeconds: null,
           twapMaxObservationChangePerUpdate: null,
           minQuoteFutarchicLiquidity: null,
           minBaseFutarchicLiquidity: null,
+          teamSponsoredPassThresholdBps: null,
+          teamAddress: null,
         },
       })
       .instruction();
@@ -411,7 +445,7 @@ export default async function suite() {
     } = this.futarchy.getProposalPdas(proposal, META, MAINNET_USDC, dao);
 
     // Stake tokens to meet the baseToStake requirement (100 billion = 100k META tokens)
-    const stakeAmount = new BN(100_000 * 10 ** 6); // 100k META tokens
+    const stakeAmount = new BN(500_000 * 10 ** 6); // 100k META tokens
     await this.futarchy
       .stakeToProposalIx({
         proposal,
@@ -503,7 +537,7 @@ export default async function suite() {
 
     const storedMeta = await this.getMint(META);
 
-    assert.equal(storedMeta.supply, BigInt(26_000_000 * 10 ** 6)); // 10M ICO + 2M futarchy liquidity + 3M meteora liquidity + 10M package + 1M proposal
+    assert.equal(storedMeta.supply, BigInt(23_900_000 * 10 ** 6)); // 10M ICO + 2M futarchy liquidity + 3M meteora liquidity + 10M package + 1M proposal
 
     const receiverBalance = await this.getTokenBalance(
       META,

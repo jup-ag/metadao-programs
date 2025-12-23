@@ -23,7 +23,7 @@ security_txt! {
     project_url: "https://metadao.fi",
     contacts: "telegram:metaproph3t,telegram:kollan_house",
     source_code: "https://github.com/metaDAOproject/programs",
-    source_release: "v0.6.0",
+    source_release: "v0.6.1",
     policy: "The market will decide whether we pay a bug bounty.",
     acknowledgements: "DCF = (CF1 / (1 + r)^1) + (CF2 / (1 + r)^2) + ... (CFn / (1 + r)^n)"
 }
@@ -33,6 +33,8 @@ declare_id!("FUTARELBfJfQ8RDGhg1wdhddq1odMAJUePHFuBYfUxKq");
 pub const SLOTS_PER_10_SECS: u64 = 25;
 pub const ONE_MINUTE_IN_SLOTS: u64 = 6 * SLOTS_PER_10_SECS;
 
+pub const MIN_QUOTE_LIQUIDITY: u64 = 100_000;
+
 pub const TEN_DAYS_IN_SECONDS: i64 = 10 * 24 * 60 * 60;
 
 pub const PRICE_SCALE: u128 = 1_000_000_000_000;
@@ -40,9 +42,9 @@ pub const PRICE_SCALE: u128 = 1_000_000_000_000;
 // by default, the pass price needs to be 3% higher than the fail price
 pub const DEFAULT_PASS_THRESHOLD_BPS: u16 = 300;
 
-// MetaDAO takes 0.2%, LP takes 0.4%
-pub const LP_TAKER_FEE_BPS: u16 = 25;
-pub const PROTOCOL_TAKER_FEE_BPS: u16 = 25;
+// MetaDAO takes 0.5%, LP takes 0%
+pub const LP_TAKER_FEE_BPS: u16 = 0;
+pub const PROTOCOL_TAKER_FEE_BPS: u16 = 50;
 pub const MAX_BPS: u16 = 10_000;
 
 // the index of the fail and pass outcomes in the question and the index of
@@ -129,10 +131,28 @@ pub mod futarchy {
         CollectFees::handle(ctx)
     }
 
+    #[access_control(ctx.accounts.validate(&args))]
+    pub fn collect_lp_fees(ctx: Context<CollectLpFees>, args: CollectLpFeesArgs) -> Result<()> {
+        CollectLpFees::handle(ctx, args)
+    }
+
     #[access_control(ctx.accounts.validate())]
     pub fn execute_spending_limit_change<'c: 'info, 'info>(
         ctx: Context<'_, '_, 'c, 'info, ExecuteSpendingLimitChange<'info>>,
     ) -> Result<()> {
         ExecuteSpendingLimitChange::handle(ctx)
+    }
+
+    #[access_control(ctx.accounts.validate())]
+    pub fn sponsor_proposal(ctx: Context<SponsorProposal>) -> Result<()> {
+        SponsorProposal::handle(ctx)
+    }
+
+    pub fn resize_dao(ctx: Context<ResizeDao>) -> Result<()> {
+        ResizeDao::handle(ctx)
+    }
+
+    pub fn resize_proposal(ctx: Context<ResizeProposal>) -> Result<()> {
+        ResizeProposal::handle(ctx)
     }
 }

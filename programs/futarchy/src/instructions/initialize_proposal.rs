@@ -81,7 +81,7 @@ impl InitializeProposal<'_> {
             number: dao.proposal_count,
             squads_proposal: squads_proposal.key(),
             proposer: proposer.key(),
-            timestamp_enqueued: clock.unix_timestamp,
+            timestamp_enqueued: 0,
             state: ProposalState::Draft { amount_staked: 0 },
             base_vault: base_vault.key(),
             quote_vault: quote_vault.key(),
@@ -93,6 +93,7 @@ impl InitializeProposal<'_> {
             fail_base_mint: base_vault.conditional_token_mints[0],
             pass_quote_mint: quote_vault.conditional_token_mints[1],
             fail_quote_mint: quote_vault.conditional_token_mints[0],
+            is_team_sponsored: false,
         });
 
         dao.seq_num += 1;

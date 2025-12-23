@@ -68,4 +68,10 @@ pub enum FutarchyError {
     ProposalNotActive,
     #[msg("This Squads transaction should only contain calls to update spending limits")]
     InvalidTransaction,
+    #[msg("Proposal has already been sponsored")]
+    ProposalAlreadySponsored,
+    #[msg("Team sponsored pass threshold must be between -10% and 10%")]
+    InvalidTeamSponsoredPassThreshold,
+    #[msg("Target K must be greater than the current K")]
+    InvalidTargetK,
 }
