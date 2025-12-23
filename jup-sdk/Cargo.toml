@@ -10,11 +10,3 @@ jupiter-amm-interface = "0.6.0"
 anchor-lang = "0.31.1"
 anyhow = "1.0.99"
 rust_decimal = "1.37.2"
-
-[dev-dependencies]
-ahash = "0.8.12"
-solana-client = "2.2.1"
-solana-commitment-config = "2.2.1"
-solana-sdk = "2.3.1"
-
-

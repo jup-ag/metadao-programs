@@ -1,18 +1,16 @@
-use anchor_lang::prelude::{
-    AccountMeta, AnchorDeserialize, AnchorSerialize, InitSpace, Pubkey, borsh,
-};
-use anyhow::{Result, anyhow, bail};
+use anchor_lang::prelude::*;
+use anyhow::{anyhow, bail, Result};
 
 use crate::FutarchyAmmError;
 
 // use crate::{FutarchyError, LP_TAKER_FEE_BPS, MAX_BPS, PROTOCOL_TAKER_FEE_BPS};
-pub const LP_TAKER_FEE_BPS: u16 = 25;
-pub const PROTOCOL_TAKER_FEE_BPS: u16 = 25;
+pub const LP_TAKER_FEE_BPS: u16 = 0;
+pub const PROTOCOL_TAKER_FEE_BPS: u16 = 50;
 pub const TAKER_FEE_BPS: u16 = LP_TAKER_FEE_BPS + PROTOCOL_TAKER_FEE_BPS;
 pub const MAX_BPS: u16 = 10_000;
 pub const PRICE_SCALE: u128 = 1_000_000_000_000;
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, InitSpace)]
+#[account]
 pub struct Dao {
     /// Embedded FutarchyAmm - 1:1 relationship
     pub amm: FutarchyAmm,
@@ -92,14 +90,26 @@ pub enum Market {
 }
 
 impl PoolState {
-    pub fn swap(&mut self, input_amount: u64, swap_type: SwapType) -> Result<u64> {
+    pub fn swap(&self, input_amount: u64, swap_type: SwapType) -> Result<u64> {
         match self {
-            PoolState::Spot { spot } => spot.swap(input_amount, swap_type),
+            PoolState::Spot { spot } => {
+                let mut spot_pool = *spot;
+                spot_pool.swap(input_amount, swap_type)
+            }
             PoolState::Futarchy { spot, pass, fail } => {
-                let spot_output = spot.swap(input_amount, swap_type)?;
+                let mut spot_pool = *spot;
+                let mut pass_pool = *pass;
+                let mut fail_pool = *fail;
 
-                let arbitrage_result =
-                    arbitrage_after_spot_swap(spot, pass, fail, spot_output, swap_type)?;
+                let spot_output = spot_pool.swap(input_amount, swap_type)?;
+
+                let arbitrage_result = arbitrage_after_spot_swap(
+                    &mut spot_pool,
+                    &mut pass_pool,
+                    &mut fail_pool,
+                    spot_output,
+                    swap_type,
+                )?;
 
                 Ok(spot_output + arbitrage_result.spot_profit)
             }
@@ -163,7 +173,7 @@ impl TwapOracle {
     }
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, InitSpace)]
+#[derive(AnchorSerialize, AnchorDeserialize, Debug, Clone, Copy, InitSpace)]
 pub struct Pool {
     pub oracle: TwapOracle,
     pub quote_reserves: u64,
@@ -318,7 +328,7 @@ impl Pool {
     }
 
     pub fn simulate_swap(&self, input_amount: u64, swap_type: SwapType) -> Result<u64> {
-        let mut pool = self.clone();
+        let mut pool = *self;
         pool.feeless_swap(input_amount, swap_type)
     }
 }
@@ -354,15 +364,9 @@ pub fn arbitrage_after_spot_swap(
     for i in 1..=100 {
         let input_amount = i * step_size;
 
-        let spot_output = spot.simulate_swap(input_amount, spot_direction).unwrap();
-
-        let pass_output = pass
-            .simulate_swap(spot_output, conditional_direction)
-            .unwrap();
-
-        let fail_output = fail
-            .simulate_swap(spot_output, conditional_direction)
-            .unwrap();
+        let spot_output = spot.simulate_swap(input_amount, spot_direction)?;
+        let pass_output = pass.simulate_swap(spot_output, conditional_direction)?;
+        let fail_output = fail.simulate_swap(spot_output, conditional_direction)?;
 
         let conditional_output = std::cmp::min(pass_output, fail_output);
 
@@ -378,17 +382,9 @@ pub fn arbitrage_after_spot_swap(
         }
     }
 
-    let final_spot_output = spot
-        .feeless_swap(best_input_amount, spot_direction)
-        .unwrap();
-
-    let final_pass_output = pass
-        .feeless_swap(final_spot_output, conditional_direction)
-        .unwrap();
-
-    let final_fail_output = fail
-        .feeless_swap(final_spot_output, conditional_direction)
-        .unwrap();
+    let final_spot_output = spot.feeless_swap(best_input_amount, spot_direction)?;
+    let final_pass_output = pass.feeless_swap(final_spot_output, conditional_direction)?;
+    let final_fail_output = fail.feeless_swap(final_spot_output, conditional_direction)?;
 
     let final_conditional_output = std::cmp::min(final_pass_output, final_fail_output);
 
