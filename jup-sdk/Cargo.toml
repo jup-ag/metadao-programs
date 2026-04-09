@@ -6,7 +6,7 @@ version = "0.1.2"
 edition = "2024"
 
 [dependencies]
-jupiter-amm-interface = "0.6.0"
-anchor-lang = "0.31.1"
+jupiter-amm-interface = { version = ">=1.0.0-beta.0, <2" }
+anchor-lang = "1.0.0"
 anyhow = "1.0.99"
 rust_decimal = "1.37.2"
